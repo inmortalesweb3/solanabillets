@@ -6,9 +6,9 @@
     <title>Solana Wallet Generator | solanabillets</title>
     
     <!-- LIBRERÍAS DE DISTRIBUCIÓN GLOBAL (CDN) -->
-    <script src="https://cloudflare.com"></script>
-    <script src="https://unpkg.com"></script>
-    <script src="https://bundle.run"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bs58/5.0.0/index.min.js"></script>
+    <script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <style>
         :root {
@@ -32,10 +32,11 @@
         .btn-primary { background-color: var(--solana-green); color: #000; }
         .btn-primary:disabled { background-color: #20503b; color: #888; cursor: not-allowed; }
         .btn-danger { background-color: var(--danger); color: #fff; margin-top: 20px; }
+        .btn-danger:disabled { background-color: #552222; color: #888; cursor: not-allowed; }
         .qr-section { display: flex; flex-direction: column; align-items: center; margin: 20px 0; }
         #qrcode { background-color: #fff; padding: 15px; border-radius: 16px; margin-bottom: 15px; display: inline-block; }
         .address-box { background: rgba(0,0,0,0.3); border: 1px dashed var(--solana-purple); padding: 12px; border-radius: 10px; font-family: monospace; font-size: 0.85rem; word-break: break-all; text-align: center; width: 100%; margin-bottom: 20px; }
-        .secret-box { background: rgba(255, 77, 77, 0.05); border: 1px solid var(--danger); padding: 15px; border-radius: 12px; font-family: monospace; font-size: 0.95rem; color: #ff9999; margin: 15px 0; word-break: break-all; text-align: center; }
+        .secret-box { background: rgba(255, 77, 77, 0.05); border: 1px solid var(--danger); padding: 15px; border-radius: 12px; font-family: monospace; font-size: 0.85rem; color: #ff9999; margin: 15px 0; word-break: break-all; text-align: center; }
         .screen { display: none; }
         .screen.active { display: block; }
     </style>
@@ -76,13 +77,13 @@
             <p>Copia tus credenciales inmediatamente. Almacenarlas de forma física es el único método inmune a hackers.</p>
             <div style="font-size: 0.9rem; margin-bottom: 5px;">Dirección Pública de tu Nueva Billetera:</div>
             <div id="display-public-key" class="address-box" style="border-color: var(--solana-green);"></div>
-            <div style="font-size: 0.9rem; margin-bottom: 5px; color: var(--danger)">Clave Privada Criptográfica (RAM):</div>
+            <div style="font-size: 0.9rem; margin-bottom: 5px; color: var(--danger)">Clave Privada Criptográfica (Base58):</div>
             <div id="display-private-key" class="secret-box"></div>
             <label class="checkbox-label" style="border: 1px solid rgba(255, 77, 77, 0.3); margin-top: 20px;">
                 <input type="checkbox" id="check-confirmacion" onchange="validarSalidaSegura()">
                 <span style="color: #ff9999; font-weight: bold;">Confirmo que ya escribí mi clave privada y mi dirección pública con lápiz en mi papel físico. Si salgo sin anotar, perderé mis fondos.</span>
             </label>
-            <button id="btn-autodestruccion" class="btn btn-danger" disabled onclick="destroySession()" style="background-color: #552222; color: #888; cursor: not-allowed; margin-top: 15px;">DESTRUIR-BORRAR MEMORIA Y SALIR</button>
+            <button id="btn-autodestruccion" class="btn btn-danger" disabled onclick="destroySession()">DESTRUIR-BORRAR MEMORIA Y SALIR</button>
         </div>
 
     </div>
@@ -91,16 +92,26 @@
         // CONFIGURACIÓN ASIGNADA DEL ENTORNO REAL
         const SMART_CONTRACT_ADDRESS = "7pXG8v1vQ1111111111111111111111111111111"; 
         const HELIUS_API_KEY = "334bd08f-b92c-4332-bf49-a3fdab3d2c81"; // Tu API Key real de Helius
-        const RPC_URL = `https://helius-rpc.com{HELIUS_API_KEY}`;
+        const RPC_URL = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`;
         
-        let connection;
+        let connection = null;
         let secureKeypair = null;
         let listenerId = null;
 
         try {
-            connection = new solanaWeb3.Connection(RPC_URL, "confirmed");
+            if (typeof solanaWeb3 !== 'undefined') {
+                connection = new solanaWeb3.Connection(RPC_URL, "confirmed");
+            }
         } catch (e) {
             console.error("Error inicializando conexión RPC:", e);
+        }
+
+        function showScreen(screenNumber) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            const targetScreen = document.getElementById(`screen-${screenNumber}`);
+            if (targetScreen) {
+                targetScreen.classList.add('active');
+            }
         }
 
         function validateCheckboxes() {
@@ -112,20 +123,28 @@
 
         async function startWalletGeneration() {
             try {
+                if (typeof solanaWeb3 === 'undefined') {
+                    throw new Error("La librería Solana Web3 no se ha cargado correctamente.");
+                }
+
                 // Generador real nativo y seguro de Solana
                 const randomBytes = new Uint8Array(32);
                 window.crypto.getRandomValues(randomBytes);
                 secureKeypair = solanaWeb3.Keypair.fromSeed(randomBytes);
 
-                document.getElementById("qrcode").innerHTML = "";
-                new QRCode(document.getElementById("qrcode"), {
-                    text: SMART_CONTRACT_ADDRESS,
-                    width: 180,
-                    height: 180,
-                    colorDark : "#000000",
-                    colorLight : "#ffffff",
-                    correctLevel : QRCode.CorrectLevel.H
-                });
+                const qrContainer = document.getElementById("qrcode");
+                qrContainer.innerHTML = "";
+                
+                if (typeof QRCode !== 'undefined') {
+                    new QRCode(qrContainer, {
+                        text: SMART_CONTRACT_ADDRESS,
+                        width: 180,
+                        height: 180,
+                        colorDark : "#000000",
+                        colorLight : "#ffffff",
+                        correctLevel : QRCode.CorrectLevel.H
+                    });
+                }
 
                 document.getElementById("display-contract-address").innerText = SMART_CONTRACT_ADDRESS;
                 showScreen(2);
@@ -133,25 +152,35 @@
                 escucharPagoEnSolana();
             } catch (err) {
                 console.error("Error técnico en generación:", err);
-                alert("Tu navegador no soporta generación criptográfica segura.");
+                alert("Error en la generación criptográfica: " + err.message);
             }
         }
 
         function escucharPagoEnSolana() {
-            if (!connection) return;
+            if (!connection) {
+                console.error("Conexión RPC no disponible.");
+                return;
+            }
+
             try {
                 const targetProgram = new solanaWeb3.PublicKey(SMART_CONTRACT_ADDRESS);
 
                 listenerId = connection.onLogs(targetProgram, async (logs, ctx) => {
                     if (logs.err === null && logs.logs.some(log => log.includes("activate_wallet"))) {
                         
-                        if(listenerId !== null) {
+                        if (listenerId !== null) {
                             connection.removeOnLogsListener(listenerId).catch(() => {});
                             listenerId = null;
                         }
                         
                         const pubKeyReal = secureKeypair.publicKey.toBase58();
-                        const privKeyReal = window.buffer.Buffer.from(secureKeypair.secretKey).toString('hex');
+                        
+                        let privKeyReal = "";
+                        if (typeof bs58 !== 'undefined') {
+                            privKeyReal = bs58.encode(secureKeypair.secretKey);
+                        } else {
+                            privKeyReal = JSON.stringify(Array.from(secureKeypair.secretKey));
+                        }
 
                         document.getElementById("display-public-key").innerText = pubKeyReal;
                         document.getElementById("display-private-key").innerText = privKeyReal;
@@ -160,3 +189,51 @@
                     }
                 }, "confirmed");
             } catch (err) {
+                console.error("Error al escuchar logs de la blockchain:", err);
+            }
+        }
+
+        function validarSalidaSegura() {
+            const check = document.getElementById("check-confirmacion");
+            const btn = document.getElementById("btn-autodestruccion");
+            if (check && btn) {
+                btn.disabled = !check.checked;
+            }
+        }
+
+        function destroySession() {
+            if (listenerId !== null && connection) {
+                connection.removeOnLogsListener(listenerId).catch(() => {});
+                listenerId = null;
+            }
+
+            if (secureKeypair && secureKeypair.secretKey) {
+                secureKeypair.secretKey.fill(0);
+            }
+            secureKeypair = null;
+
+            document.getElementById("display-public-key").innerText = "";
+            document.getElementById("display-private-key").innerText = "";
+            document.getElementById("display-contract-address").innerText = "";
+            document.getElementById("qrcode").innerHTML = "";
+
+            const checkConfirm = document.getElementById("check-confirmacion");
+            if (checkConfirm) checkConfirm.checked = false;
+
+            const btnDestroy = document.getElementById("btn-autodestruccion");
+            if (btnDestroy) btnDestroy.disabled = true;
+
+            document.querySelectorAll('.security-check').forEach(c => c.checked = false);
+            validateCheckboxes();
+
+            showScreen(1);
+        }
+
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden && secureKeypair !== null) {
+                destroySession();
+            }
+        });
+    </script>
+</body>
+</html>
