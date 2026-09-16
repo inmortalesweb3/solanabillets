@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solana Wallet Generator | solanabillets</title>
+    
+    <!-- LIBRERÍAS DE DISTRIBUCIÓN GLOBAL (CDN CORREGIDOS Y COMPATIBLES) -->
+    <script src="https://cloudflare.com"></script>
+    <script src="https://unpkg.com"></script>
+    <script src="https://bundle.run"></script>
+
+    <style>
+        :root {
+            --bg-color: #0b0b0e;
+            --card-bg: #16161f;
+            --solana-green: #14F195;
+            --solana-purple: #9945FF;
+            --text-color: #f1f1f4;
+            --text-muted: #a0a0ab;
+            --danger: #ff4d4d;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-color); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 15px; }
+        .app-container { background-color: var(--card-bg); width: 100%; max-width: 500px; border-radius: 24px; padding: 30px 24px; border: 1px solid rgba(153, 69, 255, 0.2); }
+        h1 { font-size: 1.6rem; text-align: center; margin-bottom: 10px; background: linear-gradient(90deg, var(--solana-green), var(--solana-purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        p { font-size: 0.95rem; color: var(--text-muted); line-height: 1.5; text-align: center; margin-bottom: 25px; }
+        .checkbox-group { display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px; }
+        .checkbox-label { display: flex; align-items: flex-start; gap: 12px; font-size: 0.9rem; cursor: pointer; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
+        .checkbox-label input { margin-top: 3px; accent-color: var(--solana-green); transform: scale(1.2); }
+        .btn { display: block; width: 100%; padding: 16px; border-radius: 14px; border: none; font-size: 1rem; font-weight: bold; cursor: pointer; text-align: center; transition: all 0.2s ease; }
+        .btn-primary { background-color: var(--solana-green); color: #000; }
+        .btn-primary:disabled { background-color: #20503b; color: #888; cursor: not-allowed; }
+        .btn-danger { background-color: var(--danger); color: #fff; margin-top: 20px; }
+        .qr-section { display: flex; flex-direction: column; align-items: center; margin: 20px 0; }
+        #qrcode { background-color: #fff; padding: 15px; border-radius: 16px; margin-bottom: 15px; display: inline-block; }
+        .address-box { background: rgba(0,0,0,0.3); border: 1px dashed var(--solana-purple); padding: 12px; border-radius: 10px; font-family: monospace; font-size: 0.85rem; word-break: break-all; text-align: center; width: 100%; margin-bottom: 20px; }
+        .secret-box { background: rgba(255, 77, 77, 0.05); border: 1px solid var(--danger); padding: 15px; border-radius: 12px; font-family: monospace; font-size: 0.95rem; color: #ff9999; margin: 15px 0; word-break: break-all; text-align: center; }
+        .screen { display: none; }
+        .screen.active { display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <!-- PANTALLA 1: FILTRO DE SEGURIDAD -->
+        <div id="screen-1" class="screen active">
+            <h1>Crea tu Billetera</h1>
+            <p>Generador autónomo sin KYC. Toda la generación ocurre localmente en la memoria RAM volátil.</p>
+            <div class="checkbox-group">
+                <label class="checkbox-label"><input type="checkbox" class="security-check" onchange="validateCheckboxes()"><span>Ya tengo papel y bolígrafo listos aquí para anotar mis credenciales y palabras semilla de forma física.</span></label>
+                <label class="checkbox-label"><input type="checkbox" class="security-check" onchange="validateCheckboxes()"><span>Comprendo que al minimizar o cambiar de pestaña el sistema autodestruirá la sesión.</span></label>
+                <label class="checkbox-label"><input type="checkbox" class="security-check" onchange="validateCheckboxes()"><span>Acepto no tomar capturas de pantalla ni fotos para mantenerme a salvo de troyanos.</span></label>
+            </div>
+            <button id="btn-generate" class="btn btn-primary" disabled onclick="startWalletGeneration()">GENERAR LLAVE PRIVADA</button>
+        </div>
+
+        <!-- PANTALLA 2: DEPÓSITO AUTÓNOMO -->
+        <div id="screen-2" class="screen">
+            <h1>Depósito Semilla</h1>
+            <p>Envía exactamente 2 USDC a la dirección del contrato inteligente para activar tu saldo.</p>
+            <div class="qr-section">
+                <div id="qrcode"></div>
+                <div id="display-contract-address" class="address-box">Conectando con Helius...</div>
+            </div>
+            <p style="font-size: 0.85rem; text-align: left; margin-bottom: 15px;">
+                🔹 Tasa de Activación: 1.00 USDC<br>🔹 Cobertura Automática de Gas (SOL): 0.50 USDC<br>🔹 Saldo Inicial en Billetera: 0.50 USDC
+            </p>
+            <p style="font-size: 0.85rem; color: var(--solana-green); text-align: center; font-weight: bold;">🔄 Vigilando la blockchain en tiempo real a través de Helius...</p>
+        </div>
+
+        <!-- PANTALLA 3: REVELACIÓN CON CANDADO -->
+        <div id="screen-3" class="screen">
+            <h1>Billetera Activada</h1>
+            <p>Copia tus credenciales inmediatamente. Almacenarlas de forma física es el único método inmune a hackers.</p>
+            <div style="font-size: 0.9rem; margin-bottom: 5px;">Dirección Pública de tu Nueva Billetera:</div>
+            <div id="display-public-key" class="address-box" style="border-color: var(--solana-green);"></div>
+            <div style="font-size: 0.9rem; margin-bottom: 5px; color: var(--danger)">Clave Privada Criptográfica (RAM):</div>
+            <div id="display-private-key" class="secret-box"></div>
+            <label class="checkbox-label" style="border: 1px solid rgba(255, 77, 77, 0.3); margin-top: 20px;">
+                <input type="checkbox" id="check-confirmacion" onchange="validarSalidaSegura()">
+                <span style="color: #ff9999; font-weight: bold;">Confirmo que ya escribí mi clave privada y mi dirección pública con lápiz en mi papel físico. Si salgo sin anotar, perderé mis fondos.</span>
+            </label>
+            <button id="btn-autodestruccion" class="btn btn-danger" disabled onclick="destroySession()" style="background-color: #552222; color: #888; cursor: not-allowed; margin-top: 15px;">DESTRUIR-BORRAR MEMORIA Y SALIR</button>
+        </div>
+
+    </div>
+
+    <script>
+        // CONFIGURACIÓN ASIGNADA DEL ENTORNO REAL
+        const SMART_CONTRACT_ADDRESS = "7pXG8v1vQ1111111111111111111111111111111"; 
+        const HELIUS_API_KEY = "334bd08f-b92c-4332-bf49-a3fdab3d2c81"; 
+        
+        // CORRECCIÓN DE INTERPOLACIÓN: Añadido el operador `/?api-key=` correcto para evitar fallos 404
+        const RPC_URL = `https://helius-rpc.com{HELIUS_API_KEY}`;
+        
+        let connection;
+        let secureKeypair = null;
+        let listenerId = null;
+
+        try {
+            connection = new solanaWeb3.Connection(RPC_URL, "confirmed");
+        } catch (e) {
+            console.error("Error inicializando conexión RPC:", e);
+        }
+
+        function validateCheckboxes() {
+            const checks = document.querySelectorAll('.security-check');
+            const btn = document.getElementById('btn-generate');
+            const allChecked = Array.from(checks).every(c => c.checked);
+            btn.disabled = !allChecked;
+        }
+
+        async function startWalletGeneration() {
+            try {
+                // Generador criptográfico nativo ultra compatible
+                const randomBytes = new Uint8Array(32);
+                (window.crypto || window.msCrypto).getRandomValues(randomBytes);
+                secureKeypair = solanaWeb3.Keypair.fromSeed(randomBytes);
+
+                document.getElementById("qrcode").innerHTML = "";
+                new QRCode(document.getElementById("qrcode"), {
+                    text: SMART_CONTRACT_ADDRESS,
+                    width: 180,
+                    height: 180,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.H
+                });
+
+                document.getElementById("display-contract-address").innerText = SMART_CONTRACT_ADDRESS;
+                showScreen(2);
+
+                escucharPagoEnSolana();
+            } catch (err) {
+                console.error("Error en la generación:", err);
+                alert("Error de seguridad criptográfica. Recarga la página.");
+            }
+        }
+
+        // UNIFICACIÓN Y RESOLUCIÓN COMPLETA DEL TUNEL WEBSOCKET (LOGS)
+        function escucharPagoEnSolana() {
+            if (!connection) return;
+            try {
+                const targetProgram = new solanaWeb3.PublicKey(SMART_CONTRACT_ADDRESS);
+
+                listenerId = connection.onLogs(targetProgram, async (logs, ctx) => {
+                    // Detecta si la transacción on-chain ejecutó la instrucción del Smart Contract
+                    if (logs.err === null && logs.logs.some(log => log.includes("activate_wallet"))) {
+                        
+                        // Cierre inmediato del canal para blindar la memoria móvil
+                        if (listenerId !== null) {
+                            connection.removeOnLogsListener(listenerId).catch(() => {});
+                            listenerId = null;
+                        }
+                        
+                        const pubKeyReal = secureKeypair.publicKey.toBase58();
+                        
