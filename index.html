@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Solana Wallet Generator | solanabillets</title>
     
-    <!-- LIBRERÍAS DE DISTRIBUCIÓN GLOBAL (CDN CORREGIDOS Y COMPATIBLES) -->
+    <!-- LIBRERÍAS DE DISTRIBUCIÓN GLOBAL (CDN) -->
     <script src="https://cloudflare.com"></script>
     <script src="https://unpkg.com"></script>
     <script src="https://bundle.run"></script>
@@ -49,7 +49,7 @@
             <h1>Crea tu Billetera</h1>
             <p>Generador autónomo sin KYC. Toda la generación ocurre localmente en la memoria RAM volátil.</p>
             <div class="checkbox-group">
-                <label class="checkbox-label"><input type="checkbox" class="security-check" onchange="validateCheckboxes()"><span>Ya tengo papel y bolígrafo listos aquí para anotar mis credenciales y palabras semilla de forma física.</span></label>
+                <label class="checkbox-label"><input type="checkbox" class="security-check" onchange="validateCheckboxes()"><span>Ya tengo papel y bolígrafo listos aquí para anotar mis credenciales de forma física.</span></label>
                 <label class="checkbox-label"><input type="checkbox" class="security-check" onchange="validateCheckboxes()"><span>Comprendo que al minimizar o cambiar de pestaña el sistema autodestruirá la sesión.</span></label>
                 <label class="checkbox-label"><input type="checkbox" class="security-check" onchange="validateCheckboxes()"><span>Acepto no tomar capturas de pantalla ni fotos para mantenerme a salvo de troyanos.</span></label>
             </div>
@@ -90,9 +90,7 @@
     <script>
         // CONFIGURACIÓN ASIGNADA DEL ENTORNO REAL
         const SMART_CONTRACT_ADDRESS = "7pXG8v1vQ1111111111111111111111111111111"; 
-        const HELIUS_API_KEY = "334bd08f-b92c-4332-bf49-a3fdab3d2c81"; 
-        
-        // CORRECCIÓN DE INTERPOLACIÓN: Añadido el operador `/?api-key=` correcto para evitar fallos 404
+        const HELIUS_API_KEY = "334bd08f-b92c-4332-bf49-a3fdab3d2c81"; // Tu API Key real de Helius
         const RPC_URL = `https://helius-rpc.com{HELIUS_API_KEY}`;
         
         let connection;
@@ -114,9 +112,9 @@
 
         async function startWalletGeneration() {
             try {
-                // Generador criptográfico nativo ultra compatible
+                // Generador real nativo y seguro de Solana
                 const randomBytes = new Uint8Array(32);
-                (window.crypto || window.msCrypto).getRandomValues(randomBytes);
+                window.crypto.getRandomValues(randomBytes);
                 secureKeypair = solanaWeb3.Keypair.fromSeed(randomBytes);
 
                 document.getElementById("qrcode").innerHTML = "";
@@ -134,26 +132,31 @@
 
                 escucharPagoEnSolana();
             } catch (err) {
-                console.error("Error en la generación:", err);
-                alert("Error de seguridad criptográfica. Recarga la página.");
+                console.error("Error técnico en generación:", err);
+                alert("Tu navegador no soporta generación criptográfica segura.");
             }
         }
 
-        // UNIFICACIÓN Y RESOLUCIÓN COMPLETA DEL TUNEL WEBSOCKET (LOGS)
         function escucharPagoEnSolana() {
             if (!connection) return;
             try {
                 const targetProgram = new solanaWeb3.PublicKey(SMART_CONTRACT_ADDRESS);
 
                 listenerId = connection.onLogs(targetProgram, async (logs, ctx) => {
-                    // Detecta si la transacción on-chain ejecutó la instrucción del Smart Contract
                     if (logs.err === null && logs.logs.some(log => log.includes("activate_wallet"))) {
                         
-                        // Cierre inmediato del canal para blindar la memoria móvil
-                        if (listenerId !== null) {
+                        if(listenerId !== null) {
                             connection.removeOnLogsListener(listenerId).catch(() => {});
                             listenerId = null;
                         }
                         
                         const pubKeyReal = secureKeypair.publicKey.toBase58();
+                        const privKeyReal = window.buffer.Buffer.from(secureKeypair.secretKey).toString('hex');
+
+                        document.getElementById("display-public-key").innerText = pubKeyReal;
+                        document.getElementById("display-private-key").innerText = privKeyReal;
                         
+                        showScreen(3);
+                    }
+                }, "confirmed");
+            } catch (err) {
